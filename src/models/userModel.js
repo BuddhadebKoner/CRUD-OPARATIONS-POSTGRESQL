@@ -1,11 +1,25 @@
 import pool from "../config/db.js";
+import AppError from "../utils/AppError.js";
 
-// pagination , page,limit, offset = (page - 1) * limit
 export const getAllUsersService = async (page, limit) => {
    const offset = (page - 1) * limit;
-   const result = await pool.query("SELECT * FROM users LIMIT $1 OFFSET $2", [limit, offset]);
-   return result.rows;
+
+   const [dataResult, countResult] = await Promise.all([
+      pool.query("SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2", [limit, offset]),
+      pool.query("SELECT COUNT(*) FROM users"),
+   ]);
+
+   const total = parseInt(countResult.rows[0].count, 10);
+
+   return {
+      users: dataResult.rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+   };
 };
+
 export const createUserService = async (userData) => {
    const { name, email } = userData;
    const result = await pool.query(
@@ -14,15 +28,15 @@ export const createUserService = async (userData) => {
    );
    return result.rows[0];
 };
+
 export const getUserByIdService = async (id) => {
    const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
-
    return result.rows[0];
 };
+
 export const updateUserService = async (id, userData) => {
    const { name, email } = userData;
 
-   // Build dynamic update query based on provided fields
    const updates = [];
    const values = [];
    let paramCount = 1;
@@ -34,24 +48,16 @@ export const updateUserService = async (id, userData) => {
    }
 
    if (email !== undefined) {
-      // Check if email already exists for a different user
-      const emailCheck = await pool.query(
-         "SELECT id FROM users WHERE email = $1 AND id != $2",
-         [email, id]
-      );
-
-      if (emailCheck.rows.length > 0) {
-         throw new Error("Email already exists");
-      }
-
       updates.push(`email = $${paramCount}`);
       values.push(email);
       paramCount++;
    }
 
    if (updates.length === 0) {
-      throw new Error("No fields to update");
+      throw new AppError("No fields to update", 400);
    }
+
+   updates.push(`updated_at = NOW()`);
 
    values.push(id);
    const query = `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING *`;
@@ -59,13 +65,13 @@ export const updateUserService = async (id, userData) => {
    const result = await pool.query(query, values);
 
    if (result.rows.length === 0) {
-      throw new Error("User not found");
+      throw new AppError("User not found", 404);
    }
 
    return result.rows[0];
 };
+
 export const deleteUserService = async (id) => {
    const result = await pool.query("DELETE FROM users WHERE id = $1 RETURNING *", [id]);
-
    return result.rows[0];
 };

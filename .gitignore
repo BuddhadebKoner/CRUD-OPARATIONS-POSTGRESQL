@@ -29,8 +29,8 @@ out/
 .env.*
 !.env.example
 
-# Database / local data dumps
-*.sql
+# Database / local data dumps (but keep our schema SQL files)
+# *.sql  ← Removed: this was excluding src/data/data.sql from Git
 *.sqlite
 *.db
 
