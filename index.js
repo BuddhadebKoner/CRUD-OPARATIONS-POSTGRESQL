@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import pool from "./src/config/db.js";
 import userRouter from "./src/routes/user.route.js";
+import { createUserTable } from "./src/data/createUserTable.js";
 
 dotenv.config();
 
@@ -11,6 +12,9 @@ const app = express();
 // middleware
 app.use(express.json());
 app.use(cors());
+
+// create user table if not exists
+createUserTable();
 
 // database connection
 pool.connect()
@@ -26,6 +30,15 @@ app.get("/", async (req, res) => {
 
 // userRouter
 app.use("/api/v1/users", userRouter);
+
+// Import error handlers
+import { errorHandler, notFoundHandler } from "./src/middlewares/errorHandle.js";
+
+// 404 handler - must be after all routes
+app.use(notFoundHandler);
+
+// Global error handler - must be last
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
